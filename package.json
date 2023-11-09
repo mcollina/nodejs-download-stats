@@ -1,0 +1,21 @@
+{
+  "scripts": {
+    "start": "platformatic start",
+    "test": "node --test test/*/*.test.js"
+  },
+  "devDependencies": {
+    "fastify": "^4.23.2"
+  },
+  "dependencies": {
+    "@fastify/static": "^6.12.0",
+    "@platformatic/service": "^1.10.0",
+    "async-cache-dedupe": "^2.0.0",
+    "cacache": "^18.0.0",
+    "platformatic": "^1.10.0",
+    "saxophonist": "^2.0.0",
+    "semver": "^7.5.4"
+  },
+  "engines": {
+    "node": "^18.8.0 || >=20.6.0"
+  }
+}
