@@ -7,6 +7,7 @@ async function updateChart () {
 
   const labels = [...new Set(versions['4'].map(({ date }) => date.replace(/-\d{2}$/g, '')))]
 
+  const all = labels.map((label) => 0)
 
   const datasets = Object.keys(versions).map((version) => {
     versions[version].map(({ date, downloads }) => downloads)
@@ -21,6 +22,10 @@ async function updateChart () {
 
     const data = labels.map((label) => downloadsCounts[label] || 0)
 
+    for (let i = 0; i < data.length; i++) {
+      all[i] += data[i]
+    }
+
     return {
       label: version,
       data,
@@ -32,7 +37,15 @@ async function updateChart () {
   // Your chart data
   var data = {
     labels,
-    datasets
+    datasets: [
+      ...datasets,
+      {
+        label: 'All',
+        data: all,
+        fill: false,
+        showLine: true
+      }
+    ]
   };
 
   var ctx = document.getElementById('myLineChart').getContext('2d');
