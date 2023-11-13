@@ -13,26 +13,15 @@
 
   <body>
     <header>
-      <h1>Node.js Downloads</h1>
+      <h1>Node.js Monthly Downloads</h1>
+      <p>
+        <small>The live data is downloaded from <a href="https://storage.googleapis.com/access-logs-summaries-nodejs/index.html">here</a>.</small>
+      </p>
+      <p>
+        <small>The source code of this application is available on <a href="https://github.com/mcollina/nodejs-download-stats/">GitHub</a>.</small>
+      </p>
     </header>
     <main>
-      <!--
-      <section id="inputs">
-        <form>
-          <header>
-            <h2>Input parameters</h2>
-          </header>
-          <label for="synchronousProcessing">Synchronous Processing Time:</label>
-          <input type="number" id="synchronousProcessing" name="synchronousProcessing" size="20" value="20">
-          <label for="asynchronousProcessing">Asynchronous Wait Time:</label>
-          <input type="number" id="asynchronousProcessing" name="asynchronousProcessing" size="20" value="10">
-          <label for="requestsPerSecond">Requests per second:</label>
-          <input type="number" id="requestsPerSecond" name="requestsPerSecond" size="20" value="51">
-          <button type="button" onclick="updateChart()">Submit</button>
-        </form>
-      </section>
-      <hr>
-      -->
       <canvas id="myLineChart" width=1024 height=768 style="margin: auto"></canvas>
       <script src="./count.js"></script>
       <script>
