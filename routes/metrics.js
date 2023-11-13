@@ -49,6 +49,8 @@ module.exports = async function (fastify, opts) {
       }
     })
 
+    const versions = {}
+
     // Make those files cached on disk
     await Promise.all(toDownload.map(async ({ date, url }) => {
       const info = await cacache.get.hasContent(cachePath, url)
