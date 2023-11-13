@@ -1,12 +1,6 @@
  
-async function updateChart () {
-  const response = await fetch('/metrics')
-  const json = await response.json()
 
-  const versions = json.versions
-
-  const labels = [...new Set(versions['4'].map(({ date }) => date.replace(/-\d{2}$/g, '')))]
-
+function computeDataSet (labels, versions, includeAll = true) {
   const all = labels.map((label) => 0)
 
   const datasets = Object.keys(versions).map((version) => {
@@ -29,26 +23,45 @@ async function updateChart () {
     return {
       label: version,
       data,
-      fill: false,
+      fill: true,
       showLine: true
     }
   })
 
+  if (includeAll) {
+    datasets.push({
+      label: 'All',
+      data: all,
+      fill: false,
+      showLine: true
+    })
+  }
+
+  return datasets
+}
+
+async function updateChart () {
+  const response = await fetch('/metrics')
+  const json = await response.json()
+
+  const versions = json.versions
+
+  const labels = [...new Set(versions['4'].map(({ date }) => date.replace(/-\d{2}$/g, '')))]
+
   // Your chart data
   var data = {
     labels,
-    datasets: [
-      ...datasets,
-      {
-        label: 'All',
-        data: all,
-        fill: false,
-        showLine: true
-      }
-    ]
+    datasets: computeDataSet(labels, versions)
   };
 
-  var ctx = document.getElementById('myLineChart').getContext('2d');
+  // Your chart data
+  var data2 = {
+    labels,
+    datasets: computeDataSet(labels, json.operatingSystems, false)
+  };
+
+  var ctx = document.getElementById('downloadsChart').getContext('2d');
+  var ctx2 = document.getElementById('byOperatingSystem').getContext('2d');
 
   // Configuration options
   var options = {
@@ -57,9 +70,23 @@ async function updateChart () {
   };
 
   // Create the line chart
-  myLineChart = new Chart(ctx, {
+  donwloadsChart = new Chart(ctx, {
     type: 'line',
     data: data,
     options: options
+  });
+
+  // Create the line chart
+  byOperatingSystems = new Chart(ctx2, {
+    type: 'line',
+    data: data2,
+    options: {
+      ...options,
+      scales: {
+        y: {
+          stacked: true
+        }
+      }
+    }
   });
 }

@@ -10,6 +10,7 @@ const { join } = require('path')
 const { createCache } = require('async-cache-dedupe')
 
 const BASE_URL = 'https://storage.googleapis.com/access-logs-summaries-nodejs/'
+const CACHE_KEY_FORMAT = 1
 
 /** @param {import('fastify').FastifyInstance} fastify */
 module.exports = async function (fastify, opts) {
@@ -20,7 +21,7 @@ module.exports = async function (fastify, opts) {
   })
 
   cache.define('computeMetrics', async () => {
-    const cacheKey = '/metrics'
+    const cacheKey = '/metrics#' + CACHE_KEY_FORMAT
     const indexInfo = await cacache.get.info(cachePath, cacheKey)
     if (indexInfo && indexInfo.time + 1000 * 60 * 60 * 24 < Date.now()) {
       try {
@@ -50,6 +51,8 @@ module.exports = async function (fastify, opts) {
     })
 
     const versions = {}
+    const operatingSystems = {
+    }
 
     // Make those files cached on disk
     await Promise.all(toDownload.map(async ({ date, url }) => {
@@ -74,13 +77,26 @@ module.exports = async function (fastify, opts) {
           downloads: result.version[key]
         })
       }
+
+      const oses = Object.keys(result.os)
+      for (const os of oses) {
+        operatingSystems[os] ||= []
+        operatingSystems[os].push({
+          date,
+          downloads: result.os[os]
+        })
+      }
     }))
 
     for (const key in versions) {
       versions[key].sort((a, b) => a.date.localeCompare(b.date))
     }
 
-    const res = { versions }
+    for (const key in operatingSystems) {
+      operatingSystems[key].sort((a, b) => a.date.localeCompare(b.date))
+    }
+
+    const res = { versions, operatingSystems }
 
     await cacache.put(cachePath, cacheKey, JSON.stringify(res))
 
