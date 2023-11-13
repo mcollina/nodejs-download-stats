@@ -23,7 +23,12 @@ module.exports = async function (fastify, opts) {
     const cacheKey = '/metrics'
     const indexInfo = await cacache.get.info(cachePath, cacheKey)
     if (indexInfo && indexInfo.time + 1000 * 60 * 60 * 24 < Date.now()) {
-      return JSON.parse(await cacache.get(cachePath, cacheKey))
+      try {
+        return JSON.parse(await cacache.get(cachePath, cacheKey))
+      } catch (err) {
+        fastify.log.warn({ err }, 'unable to retrieve cache for main data')
+        // ignore
+      }
     }
     const response = await undici.request(BASE_URL)
     const parser = saxophonist('Key')
