@@ -73,7 +73,7 @@ header,
 main {
     margin: 0 auto;
     max-width: var(--width-content);
-    padding: 2rem 1rem;
+    padding: 1rem 2rem;
 }
 
 hr {
@@ -591,6 +591,7 @@ blockquote footer {
 .main {
   display: grid;
   max-width: 80%;
+  grid-template-rows: 2fr;
 
   @media screen and (min-width: 1024px) {
     grid-template-columns: 1fr 1fr;

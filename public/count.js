@@ -65,8 +65,10 @@ async function updateChart () {
 
   // Configuration options
   var options = {
-    responsive: false,
-    maintainAspectRatio: false
+    responsive: true,
+    aspectRatio: 1.2,
+    maintainAspectRatio: true,
+    resizeDelay: 200
   };
 
   // Create the line chart
