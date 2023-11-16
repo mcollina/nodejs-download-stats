@@ -11,16 +11,20 @@
 
   <body class="body">
     <header class="header">
-      <h1 class="headline"">Node.js Monthly Downloads</h1>
-      <ul class="list">
-        <li class="item">
-          <img src="/svg/database-solid.svg" alt="char icon">
-          <a class="link" href="https://storage.googleapis.com/access-logs-summaries-nodejs/index.html">Live data source</a>.
-        </li>
-        <li class="item">
-          <img src="/svg/github.svg" alt="char icon">
-          <a class="link" href="https://github.com/mcollina/nodejs-download-stats/"> Application source code </a>.
-        </li>
+      <div class="headerWrapper">
+        <nav class="nav">
+          <ul class="list">
+            <li class="item">
+              <img src="/svg/database-solid.svg" alt="char icon">
+              <a class="link" href="https://storage.googleapis.com/access-logs-summaries-nodejs/index.html"><span>Live data source</span></a>
+            </li>
+            <li class="item">
+              <img src="/svg/github.svg" alt="char icon">
+              <a class="link" href="https://github.com/mcollina/nodejs-download-stats/"><span>Application source code</span></a>
+            </li>
+          </ul>
+        </nav>
+        <h1 class="headline"">Node.js Monthly Downloads</h1>
       </div>
     </header>
     <main class="main">
@@ -29,14 +33,20 @@
           <img src="/svg/download-solid.svg" alt="char icon">
           <h3 class="subhl">By Version</h3>
         </div>
-        <canvas class="graph" id="downloadsChart"></canvas>
+        <div class="canvasWrapper">
+          <div class="skeleton"></div>
+          <canvas class="graph" id="downloadsChart"></canvas>
+        </div>
       </div>
       <div class="graphWrapper">
         <div class="graphWrapperHl">
           <img src="/svg/download-solid.svg" alt="char icon">
           <h3 class="subhl">By Operating System (stacked)</h3>
         </div>
-        <canvas id="byOperatingSystem"></canvas> 
+        <div class="canvasWrapper">
+          <div class="skeleton"></div>
+          <canvas class="graph" id="byOperatingSystem"></canvas>
+        </div>
       </div>
       <script src="./count.js"></script>
       <script>

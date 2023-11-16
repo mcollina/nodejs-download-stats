@@ -42,7 +42,15 @@ function computeDataSet (labels, versions, includeAll = true) {
 
 async function updateChart () {
   const response = await fetch('/metrics')
+
   const json = await response.json()
+
+  if (json.error) {
+    return
+  } else {
+    document.querySelectorAll('.skeleton').forEach((el) => el.classList.add('hidden')
+    )
+  }
 
   const versions = json.versions
 
