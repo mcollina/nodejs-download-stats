@@ -39,10 +39,17 @@ module.exports = async function (fastify, opts) {
       for await (const chunk of stream) {
         // write a regexp that parses the date out of nodejs.org-access.log.20231107.json
         const match = chunk.text.toString().match(/nodejs\.org-access\.log\.(\d{4})(\d{2})(\d{2})\.json/)
+
         if (!match) continue
+
         const year = match[1]
         const month = match[2]
         const day = match[3]
+
+        // Do not download data for current month
+        const today = new Date()
+        if (today.getFullYear() === parseInt(year) && today.getMonth() + 1 === parseInt(month)) continue
+
         toDownload.push({
           date: `${year}-${month}-${day}`,
           url: `${BASE_URL}nodejs.org-access.log.${year}${month}${day}.json`
