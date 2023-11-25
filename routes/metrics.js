@@ -33,7 +33,7 @@ module.exports = async function (fastify, opts) {
     }
     const response = await undici.request(BASE_URL)
     const parser = saxophonist('Key')
-    const toDownload = []
+    const availableData = []
 
     await pipeline(response.body, parser, async function * (stream) {
       for await (const chunk of stream) {
@@ -46,20 +46,36 @@ module.exports = async function (fastify, opts) {
         const month = match[2]
         const day = match[3]
 
-        // Do not download data for current month
-        const today = new Date()
-        if (today.getFullYear() === parseInt(year) && today.getMonth() + 1 === parseInt(month)) continue
-
-        toDownload.push({
+        availableData.push({
           date: `${year}-${month}-${day}`,
           url: `${BASE_URL}nodejs.org-access.log.${year}${month}${day}.json`
         })
       }
     })
 
-    const versions = {}
-    const operatingSystems = {
+    // Sort available data by date
+    availableData.sort((a, b) => {
+      const [yearA, monthA, dateA] = a.date.split('-')
+      const [yearB, monthB, dateB] = b.date.split('-')
+      return yearA - yearB || monthA - monthB || dateA - dateB
+    })
+
+    const monthsToSkip = []
+
+    // Skip current month as it doesn't have all the data yet
+    const today = new Date()
+    monthsToSkip.push(String(today.getFullYear()) + '-' + String(today.getMonth() + 1).padStart(2, '0'))
+
+    // Skip starting month if it doesn't have data for first day
+    const firstDate = availableData[0].date
+    if (!firstDate.endsWith('-01')) {
+      monthsToSkip.push(firstDate.slice(0, -3))
     }
+
+    const toDownload = availableData.filter(({ date }) => !monthsToSkip.includes(date.slice(0, -3)))
+
+    const versions = {}
+    const operatingSystems = {}
 
     // Make those files cached on disk
     await Promise.all(toDownload.map(async ({ date, url }) => {
