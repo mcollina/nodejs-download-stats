@@ -71,12 +71,35 @@ async function updateChart () {
   var ctx = document.getElementById('downloadsChart').getContext('2d');
   var ctx2 = document.getElementById('byOperatingSystem').getContext('2d');
 
+  var style = getComputedStyle(document.body);
+  var borderColor = style.getPropertyValue('--color-bg-secondary');
+  var color = style.getPropertyValue('--color-text');
+
   // Configuration options
   var options = {
     responsive: true,
     aspectRatio: 1.2,
     maintainAspectRatio: true,
-    resizeDelay: 200
+    resizeDelay: 200,
+    color: color,
+    scales: {
+      x: {
+        grid: {
+          color: borderColor,
+        },
+        ticks: {
+          color: color,
+        },
+      },
+      y: {
+        grid: {
+          color: borderColor,
+        },
+        ticks: {
+          color: color,
+        },
+      },
+    },
   };
 
   // Create the line chart
@@ -93,7 +116,9 @@ async function updateChart () {
     options: {
       ...options,
       scales: {
+        ...options.scales,
         y: {
+          ...options.scales.y,
           stacked: true
         }
       }
