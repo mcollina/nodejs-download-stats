@@ -1,4 +1,13 @@
- 
+let downloadsChart
+let byOperatingSystems
+
+function getBorderColor () {
+  return getComputedStyle(document.body).getPropertyValue('--color-bg-secondary')
+}
+
+function getTextColor () {
+  return getComputedStyle(document.body).getPropertyValue('--color-text')
+}
 
 function computeDataSet (labels, versions, includeAll = true) {
   const all = labels.map((label) => 0)
@@ -71,16 +80,38 @@ async function updateChart () {
   var ctx = document.getElementById('downloadsChart').getContext('2d');
   var ctx2 = document.getElementById('byOperatingSystem').getContext('2d');
 
+  var borderColor = getBorderColor();
+  var textColor = getTextColor();
+
   // Configuration options
   var options = {
     responsive: true,
     aspectRatio: 1.2,
     maintainAspectRatio: true,
-    resizeDelay: 200
+    resizeDelay: 200,
+    color: textColor,
+    scales: {
+      x: {
+        grid: {
+          color: borderColor,
+        },
+        ticks: {
+          color: textColor,
+        },
+      },
+      y: {
+        grid: {
+          color: borderColor,
+        },
+        ticks: {
+          color: textColor,
+        },
+      },
+    },
   };
 
   // Create the line chart
-  donwloadsChart = new Chart(ctx, {
+  downloadsChart = new Chart(ctx, {
     type: 'line',
     data: data,
     options: options
@@ -93,10 +124,27 @@ async function updateChart () {
     options: {
       ...options,
       scales: {
+        ...options.scales,
         y: {
+          ...options.scales.y,
           stacked: true
         }
       }
     }
   });
 }
+
+window.matchMedia('(prefers-color-scheme: dark)')
+  .addEventListener('change', event => {
+    var borderColor = getBorderColor();
+    var textColor = getTextColor();
+
+    for (const chart of [downloadsChart, byOperatingSystems]) {
+      chart.options.color = textColor
+      chart.options.scales.x.grid.color = borderColor
+      chart.options.scales.y.grid.color = borderColor
+      chart.options.scales.x.ticks.color = textColor
+      chart.options.scales.y.ticks.color = textColor
+      chart.update()
+    }
+  })
