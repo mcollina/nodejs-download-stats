@@ -110,6 +110,8 @@ async function updateChart () {
     },
   };
 
+  console.log(data)
+
   // Create the line chart
   downloadsChart = new Chart(ctx, {
     type: 'line',
