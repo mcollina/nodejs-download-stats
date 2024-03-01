@@ -1,28 +1,57 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" color-mode="user">
   <head>
     <link rel="stylesheet" href="./mvp.css">
-
     <meta charset="utf-8">
-    <meta name="description" content="Predict response time for Node.js applications">
+    <meta name="description" content="Node.js monthly downloads by version and operating system">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <title>Node.js Downloads</title>
   </head>
 
-  <body>
-    <header>
-      <h1>Node.js Monthly Downloads</h1>
-      <p>
-        <small>The live data is downloaded from <a href="https://storage.googleapis.com/access-logs-summaries-nodejs/index.html">here</a>.</small>
-      </p>
-      <p>
-        <small>The source code of this application is available on <a href="https://github.com/mcollina/nodejs-download-stats/">GitHub</a>.</small>
-      </p>
+  <body class="body">
+    <header class="header">
+      <div class="headerWrapper">
+        <nav class="nav">
+          <ul class="list">
+            <li class="item">
+              <a class="link" href="https://storage.googleapis.com/access-logs-summaries-nodejs/index.html">
+                <img src="/svg/database-solid.svg" alt="char icon">
+                <span>Live data source</span>
+              </a>
+            </li>
+            <li class="item">
+              <a class="link" href="https://github.com/mcollina/nodejs-download-stats/">
+                <img src="/svg/github.svg" alt="char icon">
+                <span>Application source code</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+        <h1 class="headline"">Node.js Monthly Downloads</h1>
+      </div>
     </header>
-    <main>
-      <canvas id="myLineChart" width=1024 height=768 style="margin: auto"></canvas>
+    <main class="main">
+      <div class="graphWrapper">
+        <div class="graphWrapperHl">
+          <img src="/svg/download.svg" alt="char icon">
+          <h3 class="subhl">By Version</h3>
+        </div>
+        <div class="canvasWrapper">
+          <div class="skeleton"></div>
+          <canvas class="graph" id="downloadsChart"></canvas>
+        </div>
+      </div>
+      <div class="graphWrapper">
+        <div class="graphWrapperHl">
+          <img src="/svg/download.svg" alt="char icon">
+          <h3 class="subhl">By Operating System (stacked)</h3>
+        </div>
+        <div class="canvasWrapper">
+          <div class="skeleton"></div>
+          <canvas class="graph" id="byOperatingSystem"></canvas>
+        </div>
+      </div>
       <script src="./count.js"></script>
       <script>
         updateChart()

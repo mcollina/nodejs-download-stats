@@ -10,6 +10,7 @@ const { join } = require('path')
 const { createCache } = require('async-cache-dedupe')
 
 const BASE_URL = 'https://storage.googleapis.com/access-logs-summaries-nodejs/'
+const CACHE_KEY_FORMAT = 1
 
 /** @param {import('fastify').FastifyInstance} fastify */
 module.exports = async function (fastify, opts) {
@@ -20,7 +21,7 @@ module.exports = async function (fastify, opts) {
   })
 
   cache.define('computeMetrics', async () => {
-    const cacheKey = '/metrics'
+    const cacheKey = '/metrics#' + CACHE_KEY_FORMAT
     const indexInfo = await cacache.get.info(cachePath, cacheKey)
     if (indexInfo && indexInfo.time + 1000 * 60 * 60 * 24 < Date.now()) {
       try {
@@ -32,24 +33,49 @@ module.exports = async function (fastify, opts) {
     }
     const response = await undici.request(BASE_URL)
     const parser = saxophonist('Key')
-    const toDownload = []
+    const availableData = []
 
     await pipeline(response.body, parser, async function * (stream) {
       for await (const chunk of stream) {
         // write a regexp that parses the date out of nodejs.org-access.log.20231107.json
         const match = chunk.text.toString().match(/nodejs\.org-access\.log\.(\d{4})(\d{2})(\d{2})\.json/)
+
         if (!match) continue
+
         const year = match[1]
         const month = match[2]
         const day = match[3]
-        toDownload.push({
+
+        availableData.push({
           date: `${year}-${month}-${day}`,
           url: `${BASE_URL}nodejs.org-access.log.${year}${month}${day}.json`
         })
       }
     })
 
+    // Sort available data by date
+    availableData.sort((a, b) => {
+      const [yearA, monthA, dateA] = a.date.split('-')
+      const [yearB, monthB, dateB] = b.date.split('-')
+      return yearA - yearB || monthA - monthB || dateA - dateB
+    })
+
+    const monthsToSkip = []
+
+    // Skip current month as it doesn't have all the data yet
+    const today = new Date()
+    monthsToSkip.push(String(today.getFullYear()) + '-' + String(today.getMonth() + 1).padStart(2, '0'))
+
+    // Skip starting month if it doesn't have data for first day
+    const firstDate = availableData[0].date
+    if (!firstDate.endsWith('-01')) {
+      monthsToSkip.push(firstDate.slice(0, -3))
+    }
+
+    const toDownload = availableData.filter(({ date }) => !monthsToSkip.includes(date.slice(0, -3)))
+
     const versions = {}
+    const operatingSystems = {}
 
     // Make those files cached on disk
     await Promise.all(toDownload.map(async ({ date, url }) => {
@@ -74,13 +100,26 @@ module.exports = async function (fastify, opts) {
           downloads: result.version[key]
         })
       }
+
+      const oses = Object.keys(result.os)
+      for (const os of oses) {
+        operatingSystems[os] ||= []
+        operatingSystems[os].push({
+          date,
+          downloads: result.os[os]
+        })
+      }
     }))
 
     for (const key in versions) {
       versions[key].sort((a, b) => a.date.localeCompare(b.date))
     }
 
-    const res = { versions }
+    for (const key in operatingSystems) {
+      operatingSystems[key].sort((a, b) => a.date.localeCompare(b.date))
+    }
+
+    const res = { versions, operatingSystems }
 
     await cacache.put(cachePath, cacheKey, JSON.stringify(res))
 

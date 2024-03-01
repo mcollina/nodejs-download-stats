@@ -17,7 +17,11 @@ npm install
 
 ## Usage
 
-Run the API with:
+1. Update the environment variables in `.env` to match your Platformatic project.
+An example `.env` file is provided in `.env.example`.
+You may just rename it to `.env` and update the values.
+
+2.Run the API server with:
 
 ```bash
 npm start
