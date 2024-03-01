@@ -2,12 +2,13 @@
 'use strict'
 
 const undici = require('undici')
-const saxophonist = require('saxophonist')
 const { pipeline } = require('stream/promises')
 const semver = require('semver')
 const cacache = require('cacache')
 const { join } = require('path')
 const { createCache } = require('async-cache-dedupe')
+const { XMLParser } = require('fast-xml-parser')
+const os = require('os')
 
 const BASE_URL = 'https://storage.googleapis.com/access-logs-summaries-nodejs/'
 const CACHE_KEY_FORMAT = 1
@@ -20,38 +21,54 @@ module.exports = async function (fastify, opts) {
     storage: { type: 'memory' },
   })
 
+  const agent = new undici.Agent({
+    connections: 10
+  })
+
+  const cachePath = join(os.tmpdir(), 'downloads-cache')
+
   cache.define('computeMetrics', async () => {
     const cacheKey = '/metrics#' + CACHE_KEY_FORMAT
     const indexInfo = await cacache.get.info(cachePath, cacheKey)
     if (indexInfo && indexInfo.time + 1000 * 60 * 60 * 24 < Date.now()) {
       try {
-        return JSON.parse(await cacache.get(cachePath, cacheKey))
+        const blob = await cacache.get(cachePath, cacheKey)
+        return JSON.parse(blob)
       } catch (err) {
+        await cacache.rm.entry(cachePath, cacheKey)
         fastify.log.warn({ err }, 'unable to retrieve cache for main data')
         // ignore
       }
     }
-    const response = await undici.request(BASE_URL)
-    const parser = saxophonist('Key')
+
     const availableData = []
+    let nextMarker = ''
+    do {
+      let url = BASE_URL + '?max-keys=100'
+      if (nextMarker) {
+        url += '&marker=' + nextMarker
+      }
+      fastify.log.debug({ url }, 'fetching data')
+      const response = await undici.request(url, {
+        dispatcher: agent
+      })
+      const parser = new XMLParser()
+      const obj = parser.parse(await response.body.text())
 
-    await pipeline(response.body, parser, async function * (stream) {
-      for await (const chunk of stream) {
-        // write a regexp that parses the date out of nodejs.org-access.log.20231107.json
-        const match = chunk.text.toString().match(/nodejs\.org-access\.log\.(\d{4})(\d{2})(\d{2})\.json/)
-
+      for (const key of obj.ListBucketResult.Contents) {
+        const match = key.Key.match(/nodejs\.org-access\.log\.(\d{4})(\d{2})(\d{2})\.json/)
         if (!match) continue
-
         const year = match[1]
         const month = match[2]
         const day = match[3]
-
         availableData.push({
           date: `${year}-${month}-${day}`,
           url: `${BASE_URL}nodejs.org-access.log.${year}${month}${day}.json`
         })
       }
-    })
+
+      nextMarker = obj.ListBucketResult.NextMarker
+    } while (nextMarker)
 
     // Sort available data by date
     availableData.sort((a, b) => {
@@ -60,17 +77,11 @@ module.exports = async function (fastify, opts) {
       return yearA - yearB || monthA - monthB || dateA - dateB
     })
 
-    const monthsToSkip = []
+    const monthsToSkip = ['2021-03'] // this month has botched data
 
     // Skip current month as it doesn't have all the data yet
     const today = new Date()
     monthsToSkip.push(String(today.getFullYear()) + '-' + String(today.getMonth() + 1).padStart(2, '0'))
-
-    // Skip starting month if it doesn't have data for first day
-    const firstDate = availableData[0].date
-    if (!firstDate.endsWith('-01')) {
-      monthsToSkip.push(firstDate.slice(0, -3))
-    }
 
     const toDownload = availableData.filter(({ date }) => !monthsToSkip.includes(date.slice(0, -3)))
 
@@ -85,7 +96,9 @@ module.exports = async function (fastify, opts) {
         const res = await cacache.get(cachePath, url)
         result = JSON.parse(res.data.toString())
       } else {
-        const response = await undici.request(url)
+        const response = await undici.request(url, {
+          dispatcher: agent
+        })
         result = await response.body.json()
         await cacache.put(cachePath, url, JSON.stringify(result))
       }
@@ -126,7 +139,6 @@ module.exports = async function (fastify, opts) {
     return res
   })
 
-  const cachePath = join(__dirname, '..', 'cache')
   fastify.get('/metrics', async (request, reply) => {
     const res = await cache.computeMetrics()
     // The content stays stable for 1 hour
