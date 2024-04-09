@@ -24,6 +24,7 @@
     --width-card-medium: 460px;
     --width-card-wide: 800px;
     --width-content: 1080px;
+    --label-font-size: 12px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -148,7 +149,7 @@ section header {
 
 /* Nav */
 nav {
-    align-items: center;
+    align-s: center;
     display: flex;
     font-weight: bold;
     justify-content: space-between;
@@ -576,14 +577,14 @@ blockquote footer {
 }
 .item {
   transition: all 0.3s ease-in-out;
-  border: 2px solid var(--color-link);
-  background-color: var(--color-link);
+  border: 2px solid var(--color-bg-secondary);
+  background-color: var(--color-bg-secondary);
   border-radius: 50%;
   padding: 5px;
   width: 50px;
   height: 50px;
   display: flex;
-  align-items: center;
+  align-s: center;
   justify-content: center;
   margin: 0 5px;
 
@@ -597,15 +598,16 @@ blockquote footer {
   }
 }
 .item > .link {
-  color: var(--color-bg);
+  color: var(--color-text);
   text-decoration: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: var(--label-font-size);  
 }
 .item:hover,
 .item:focus {
-  background-color: var(--color-link-hover);
+  background-color: var(--color-bg);
 }
 .main {
   display: grid;
@@ -639,7 +641,7 @@ blockquote footer {
 
 .graph {
   border: 1px solid var(--color-bg-secondary);
-  width: 100% !important;
+  width: 90% !important;
   height: auto !important;
   padding: 10px 20px;
   border-radius: 10px;
