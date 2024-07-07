@@ -77,7 +77,7 @@ module.exports = async function (fastify, opts) {
       return yearA - yearB || monthA - monthB || dateA - dateB
     })
 
-    const monthsToSkip = ['2021-03'] // this month has botched data
+    const monthsToSkip = [] // this month has botched data
 
     // Skip current month as it doesn't have all the data yet
     const today = new Date()
