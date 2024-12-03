@@ -52,7 +52,9 @@ module.exports = async function (fastify, opts) {
       const response = await undici.request(url, {
         dispatcher: agent
       })
-      const parser = new XMLParser()
+      const parser = new XMLParser({
+        isArray: (tagName) => tagName === "Contents",
+      })
       const obj = parser.parse(await response.body.text())
 
       for (const key of obj.ListBucketResult.Contents) {
