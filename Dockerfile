@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:18-alpine AS builder
 
 ENV APP_HOME=/home/app/node/
 WORKDIR $APP_HOME
@@ -9,7 +9,7 @@ RUN npm ci
 
 COPY . .
 
-FROM node:20-alpine
+FROM node:18-alpine
 
 ENV APP_HOME=/home/app/node/
 WORKDIR $APP_HOME
