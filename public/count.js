@@ -49,6 +49,49 @@ function computeDataSet (labels, versions, includeAll = true) {
   return datasets
 }
 
+function generateCSV(json) {
+  const csv = []
+  csv.push('Month,Version,Operating System,Downloads')
+  
+  // Aggregate version data by month
+  Object.keys(json.versions).forEach(version => {
+    const monthlyData = {}
+    json.versions[version].forEach(({ date, downloads }) => {
+      const month = date.replace(/-\d{2}$/g, '') // Remove day, keep YYYY-MM
+      monthlyData[month] = (monthlyData[month] || 0) + downloads
+    })
+    
+    Object.keys(monthlyData).forEach(month => {
+      csv.push(`${month},${version},,${monthlyData[month]}`)
+    })
+  })
+  
+  // Aggregate operating system data by month
+  Object.keys(json.operatingSystems).forEach(os => {
+    const monthlyData = {}
+    json.operatingSystems[os].forEach(({ date, downloads }) => {
+      const month = date.replace(/-\d{2}$/g, '') // Remove day, keep YYYY-MM
+      monthlyData[month] = (monthlyData[month] || 0) + downloads
+    })
+    
+    Object.keys(monthlyData).forEach(month => {
+      csv.push(`${month},,${os},${monthlyData[month]}`)
+    })
+  })
+  
+  return csv.join('\n')
+}
+
+function downloadCSV(csv) {
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'nodejs-downloads.csv'
+  a.click()
+  window.URL.revokeObjectURL(url)
+}
+
 async function updateChart () {
   const response = await fetch('/metrics')
 
@@ -134,6 +177,13 @@ async function updateChart () {
       }
     }
   });
+  
+  // Setup CSV download
+  document.getElementById('csvDownload').addEventListener('click', (e) => {
+    e.preventDefault()
+    const csv = generateCSV(json)
+    downloadCSV(csv)
+  })
 }
 
 window.matchMedia('(prefers-color-scheme: dark)')
