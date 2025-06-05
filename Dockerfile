@@ -1,4 +1,4 @@
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 ENV APP_HOME=/home/app/node/
 WORKDIR $APP_HOME
@@ -25,4 +25,4 @@ ENV PLT_SERVER_LOGGER_LEVEL=info
 
 EXPOSE 3042
 
-CMD ["node", "node_modules/.bin/platformatic", "start"]
+CMD ["node", "node_modules/.bin/wattpm", "start"]
