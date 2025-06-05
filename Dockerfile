@@ -9,7 +9,7 @@ RUN npm ci
 
 COPY . .
 
-FROM node:18-alpine
+FROM node:22-alpine
 
 ENV APP_HOME=/home/app/node/
 WORKDIR $APP_HOME
