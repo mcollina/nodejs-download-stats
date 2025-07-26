@@ -1,14 +1,14 @@
 /// <reference path="../global.d.ts" />
 'use strict'
 
+const os = require('node:os')
+const { join } = require('node:path')
 const undici = require('undici')
-const { pipeline } = require('stream/promises')
 const semver = require('semver')
 const cacache = require('cacache')
-const { join } = require('path')
 const { createCache } = require('async-cache-dedupe')
 const { XMLParser } = require('fast-xml-parser')
-const os = require('os')
+
 
 const BASE_URL = 'https://storage.googleapis.com/access-logs-summaries-nodejs/'
 const CACHE_KEY_FORMAT = 1

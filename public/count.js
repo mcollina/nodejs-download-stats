@@ -98,7 +98,8 @@ async function updateChart () {
   const json = await response.json()
 
   if (json.error) {
-    return
+    console.error('Error fetching metrics:', json.error)
+    return;
   } else {
     document.querySelectorAll('.skeleton').forEach((el) => el.classList.add('hidden')
     )
@@ -129,7 +130,7 @@ async function updateChart () {
   // Configuration options
   var options = {
     responsive: true,
-    aspectRatio: 1.2,
+    aspectRatio: 1.5,
     maintainAspectRatio: true,
     resizeDelay: 200,
     color: textColor,
@@ -153,7 +154,6 @@ async function updateChart () {
     },
   };
 
-  console.log(data)
 
   // Create the line chart
   downloadsChart = new Chart(ctx, {
