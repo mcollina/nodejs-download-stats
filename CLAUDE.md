@@ -8,8 +8,8 @@ This is a Node.js download statistics application built with Platformatic Servic
 
 ## Key Commands
 
-- `npm start` - Start the Platformatic service (runs on port from ENV or 3042)
-- `npm test` - Run tests using Node.js built-in test runner
+- `node --run start` - Start the Platformatic service (runs on port from ENV or 3042)
+- `node --run test` - Run tests using Node.js built-in test runner
 - `npm install` - Install dependencies
 
 ## Architecture
