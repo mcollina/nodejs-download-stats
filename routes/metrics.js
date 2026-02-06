@@ -8,20 +8,54 @@ module.exports = async function (fastify, opts) {
   // Initialize data ingester with Fastify's logger
   const ingester = new DataIngester(fastify.log)
 
-  // Flag to track ingestion status
+  // Start ingestion in a forked process to avoid blocking the event loop
+  // This keeps the server responsive while data loads in background
+  const { fork } = require('node:child_process')
+  const path = require('node:path')
+  
   let isReady = false
+  let ingestionProgress = { processed: 0, total: 0 }
 
-  // Start ingestion in the background (don't block server startup)
-  ingester.ingest().then(() => {
-    isReady = true
-    fastify.log.info('Data ingestion completed, server is ready')
-  }).catch(err => {
-    fastify.log.error({ err }, 'Initial data ingestion failed')
-  })
+  // Fork a child process to handle ingestion
+  function startIngestion () {
+    const ingestPath = path.join(__dirname, '../lib/ingest-worker.js')
+    // Create a simple worker script if it doesn't exist yet
+    const worker = fork(ingestPath, [], {
+      stdio: 'pipe',
+      env: { ...process.env, NODEJS_DOWNLOAD_STATS_DB: process.env.NODEJS_DOWNLOAD_STATS_DB }
+    })
+
+    worker.on('message', (msg) => {
+      if (msg.type === 'progress') {
+        ingestionProgress = msg.data
+        fastify.log.info(msg.data, 'Ingestion progress')
+      } else if (msg.type === 'complete') {
+        isReady = true
+        fastify.log.info('Data ingestion completed')
+      } else if (msg.type === 'error') {
+        fastify.log.error(msg.error, 'Ingestion error')
+      }
+    })
+
+    worker.on('exit', (code) => {
+      if (code !== 0) {
+        fastify.log.error({ code }, 'Ingestion worker exited with error')
+      }
+    })
+
+    return worker
+  }
+
+  // Start initial ingestion in background
+  let worker = startIngestion()
 
   // Schedule periodic refresh every 24 hours
   setInterval(() => {
-    ingester.ingest().catch(err => fastify.log.error({ err }, 'Periodic ingestion failed'))
+    if (worker && !worker.killed) {
+      worker.kill()
+    }
+    isReady = false
+    worker = startIngestion()
   }, 24 * 60 * 60 * 1000)
 
   fastify.get('/metrics', async (request, reply) => {
@@ -30,11 +64,15 @@ module.exports = async function (fastify, opts) {
     // Check if data is available
     const versionRows = db.getDailyVersionDownloads()
 
-    // If no data yet and ingestion is still running, return a temporary error
+    // If no data yet, return a loading state with progress info
     if (versionRows.length === 0 && !isReady) {
       reply.code(503)
       reply.header('Retry-After', '30')
-      return { error: 'Data is still loading, please retry in a few minutes' }
+      return { 
+        error: 'Data is still loading', 
+        progress: ingestionProgress,
+        message: 'Initial data load in progress, please retry shortly'
+      }
     }
 
     // Fetch monthly aggregated data from SQLite
