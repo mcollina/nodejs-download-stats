@@ -223,8 +223,9 @@ describe('DataIngester - error handling', () => {
     mockAgent.disableNetConnect()
     setGlobalDispatcher(mockAgent)
 
-    // Set old last_update to force ingestion
-    db.setLastUpdate(new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString())
+    // Set old last_update to force ingestion (25 hours ago)
+    const twentyFiveHoursAgo = Date.now() - 25 * 60 * 60 * 1000
+    db.setLastUpdate(new Date(twentyFiveHoursAgo).toISOString(), twentyFiveHoursAgo)
   })
 
   after(async () => {
@@ -275,8 +276,9 @@ describe('DataIngester - version filtering', () => {
     mockAgent.disableNetConnect()
     setGlobalDispatcher(mockAgent)
 
-    // Set old last_update to force ingestion
-    db.setLastUpdate(new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString())
+    // Set old last_update to force ingestion (25 hours ago)
+    const twentyFiveHoursAgo = Date.now() - 25 * 60 * 60 * 1000
+    db.setLastUpdate(new Date(twentyFiveHoursAgo).toISOString(), twentyFiveHoursAgo)
   })
 
   after(async () => {
