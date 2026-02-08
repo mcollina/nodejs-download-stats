@@ -57,13 +57,16 @@ describe('DataIngester', () => {
   })
 
   it('should create DataIngester instance', () => {
-    const ingester = new DataIngester(logger, db)
+    const ingester = new DataIngester(logger, db, mockAgent)
     assert.ok(ingester, 'should create instance')
     assert.ok(ingester.ingest, 'should have ingest method')
     assert.ok(ingester.ingestWithProgress, 'should have ingestWithProgress method')
   })
 
   it('should list available files from GCS', async () => {
+    // Pass mockAgent to DataIngester so intercepts work
+    const ingester = new DataIngester(logger, db, mockAgent)
+    
     const mockPool = mockAgent.get('https://storage.googleapis.com')
     
     const bucketListing = `<?xml version="1.0" encoding="UTF-8"?>
@@ -79,7 +82,6 @@ describe('DataIngester', () => {
       method: 'GET'
     }).reply(200, bucketListing, { 'content-type': 'application/xml' })
 
-    const ingester = new DataIngester(logger, db)
     const files = await ingester.listAvailableFiles()
 
     assert.strictEqual(files.length, 3, 'should list 3 files')
@@ -99,7 +101,7 @@ describe('DataIngester', () => {
   <Contents><Key>nodejs.org-access.log.20240103.json</Key></Contents>
 </ListBucketResult>`, { 'content-type': 'application/xml' })
 
-    const ingester = new DataIngester(logger, db)
+    const ingester = new DataIngester(logger, db, mockAgent)
     const files = await ingester.listAvailableFiles('2024-01-02')
 
     // Should filter to only files after 2024-01-02
@@ -129,7 +131,7 @@ describe('DataIngester', () => {
       method: 'GET'
     }).reply(200, dayData, { 'content-type': 'application/json' })
 
-    const ingester = new DataIngester(logger, db)
+    const ingester = new DataIngester(logger, db, mockAgent)
     const progressCalls = []
 
     await ingester.ingestWithProgress((progress) => {
@@ -177,7 +179,7 @@ describe('DataIngester', () => {
       method: 'GET'
     }).reply(200, dayData, { 'content-type': 'application/json' })
 
-    const ingester = new DataIngester(logger, db)
+    const ingester = new DataIngester(logger, db, mockAgent)
     await ingester.ingest()
 
     const dates = db.getExistingDates()
@@ -207,7 +209,7 @@ describe('DataIngester', () => {
       method: 'GET'
     }).reply(500, 'Internal Server Error')
 
-    const ingester = new DataIngester(logger, db)
+    const ingester = new DataIngester(logger, db, mockAgent)
     
     // Should not throw even when individual file fails
     await assert.doesNotReject(async () => {
@@ -241,7 +243,7 @@ describe('DataIngester', () => {
     // Clear last_update to force ingestion
     db.setLastUpdate(new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString())
 
-    const ingester = new DataIngester(logger, db)
+    const ingester = new DataIngester(logger, db, mockAgent)
     await ingester.ingest()
 
     const versions = db.getDailyVersionDownloads()
@@ -255,7 +257,7 @@ describe('DataIngester', () => {
   })
 
   it('should prevent concurrent ingestion', async () => {
-    const ingester = new DataIngester(logger, db)
+    const ingester = new DataIngester(logger, db, mockAgent)
     
     // Manually set isIngesting to true
     ingester.isIngesting = true
