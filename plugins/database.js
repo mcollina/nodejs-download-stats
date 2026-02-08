@@ -4,11 +4,11 @@ const { Database } = require('../lib/db')
 
 /** @param {import('fastify').FastifyInstance} fastify */
 module.exports = async function (fastify, opts) {
-  // Get config from parent or use opts
-  const config = fastify.config || opts
+  // Get config from parent
+  const config = fastify.config
 
   if (!config.NODEJS_DOWNLOAD_STATS_DB) {
-    throw new Error('NODEJS_DOWNLOAD_STATS_DB is required in config')
+    throw new Error('NODEJS_DOWNLOAD_STATS_DB is required in config - did you load the config plugin first?')
   }
 
   // Create database instance
@@ -24,3 +24,4 @@ module.exports = async function (fastify, opts) {
     db.closeDb()
   })
 }
+module.exports[Symbol.for('skip-override')] = true
