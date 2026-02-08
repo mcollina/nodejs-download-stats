@@ -5,8 +5,14 @@ const { DataIngester } = require('../lib/ingest')
 
 /** @param {import('fastify').FastifyInstance} fastify */
 module.exports = async function (fastify, opts) {
-  // Initialize data ingester with Fastify's logger
-  const ingester = new DataIngester(fastify.log)
+  // Get database from fastify decorator
+  const db = fastify.db
+  if (!db) {
+    throw new Error('Database not initialized - ensure database plugin is registered before metrics routes')
+  }
+
+  // Initialize data ingester with Fastify's logger and database
+  const ingester = new DataIngester(fastify.log, db)
 
   // Track ingestion status
   let isReady = false
@@ -36,8 +42,6 @@ module.exports = async function (fastify, opts) {
   }, 24 * 60 * 60 * 1000)
 
   fastify.get('/metrics', async (request, reply) => {
-    const db = require('../lib/db')
-
     // Check if data is available
     const versionRows = db.getDailyVersionDownloads()
 

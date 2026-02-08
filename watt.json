@@ -9,7 +9,11 @@
   "plugins": {
     "paths": [
       {
-        "path": "./plugins",
+        "path": "./plugins/config.js",
+        "encapsulate": false
+      },
+      {
+        "path": "./plugins/database.js",
         "encapsulate": false
       },
       "./routes"
