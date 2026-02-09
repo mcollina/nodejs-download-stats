@@ -7,6 +7,10 @@ dist
 # database files
 *.sqlite
 *.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
 # Logs
 logs

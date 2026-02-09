@@ -1,152 +1,128 @@
 /// <reference path="../global.d.ts" />
 'use strict'
 
-const os = require('node:os')
-const { join } = require('node:path')
-const undici = require('undici')
-const semver = require('semver')
-const cacache = require('cacache')
-const { createCache } = require('async-cache-dedupe')
-const { XMLParser } = require('fast-xml-parser')
-
-
-const BASE_URL = 'https://storage.googleapis.com/access-logs-summaries-nodejs/'
-const CACHE_KEY_FORMAT = 1
+const { DataIngester } = require('../lib/ingest')
 
 /** @param {import('fastify').FastifyInstance} fastify */
 module.exports = async function (fastify, opts) {
-  const cache = createCache({
-    ttl: 5, // seconds
-    stale: 5, // number of seconds to return data after ttl has expired
-    storage: { type: 'memory' },
+  // Get database from fastify decorator
+  const db = fastify.db
+  if (!db) {
+    throw new Error('Database not initialized - ensure database plugin is registered before metrics routes')
+  }
+
+  // Initialize data ingester with Fastify's logger and database
+  const ingester = new DataIngester(fastify.log, db)
+
+  // Track ingestion status
+  let isReady = false
+  let ingestionProgress = { processed: 0, total: 0, isLoading: true }
+
+  // Start ingestion in background (non-blocking with yields)
+  ingester.ingestWithProgress((progress) => {
+    ingestionProgress = { ...progress, isLoading: true }
+  }).then(() => {
+    isReady = true
+    ingestionProgress.isLoading = false
+    fastify.log.info('Data ingestion completed')
+  }).catch(err => {
+    fastify.log.error({ err }, 'Data ingestion failed')
   })
 
-  const agent = new undici.Agent({
-    connections: 10
-  })
+  // Schedule periodic refresh every 24 hours
+  setInterval(() => {
+    isReady = false
+    ingestionProgress = { processed: 0, total: 0, isLoading: true }
+    ingester.ingestWithProgress((progress) => {
+      ingestionProgress = { ...progress, isLoading: true }
+    }).then(() => {
+      isReady = true
+      ingestionProgress.isLoading = false
+    }).catch(err => fastify.log.error({ err }, 'Periodic ingestion failed'))
+  }, 24 * 60 * 60 * 1000)
 
-  const cachePath = join(os.tmpdir(), 'downloads-cache')
+  fastify.get('/metrics', async (request, reply) => {
+    // Check if data is available
+    const versionRows = db.getDailyVersionDownloads()
 
-  cache.define('computeMetrics', async () => {
-    const cacheKey = '/metrics#' + CACHE_KEY_FORMAT
-    const indexInfo = await cacache.get.info(cachePath, cacheKey)
-    if (indexInfo && indexInfo.time + 1000 * 60 * 60 * 24 < Date.now()) {
-      try {
-        const blob = await cacache.get(cachePath, cacheKey)
-        return JSON.parse(blob)
-      } catch (err) {
-        await cacache.rm.entry(cachePath, cacheKey)
-        fastify.log.warn({ err }, 'unable to retrieve cache for main data')
-        // ignore
+    // If no data yet and still loading, return 503 with progress info
+    if (versionRows.length === 0 && ingestionProgress.isLoading) {
+      reply.code(503)
+      reply.header('Retry-After', '30')
+      return { 
+        error: 'Data is still loading', 
+        progress: ingestionProgress,
+        message: 'Initial data load in progress - server is responsive, data loading in background'
       }
     }
 
-    const availableData = []
-    let nextMarker = ''
-    do {
-      let url = BASE_URL + '?max-keys=100'
-      if (nextMarker) {
-        url += '&marker=' + nextMarker
-      }
-      fastify.log.debug({ url }, 'fetching data')
-      const response = await undici.request(url, {
-        dispatcher: agent
-      })
-      const parser = new XMLParser({
-        isArray: (tagName) => tagName === "Contents",
-      })
-      const obj = parser.parse(await response.body.text())
+    // Fetch monthly aggregated data from SQLite
+    const monthlyVersionRows = db.getMonthlyVersionDownloads()
+    const monthlyOsRows = db.getMonthlyOsDownloads()
 
-      for (const key of obj.ListBucketResult.Contents) {
-        const match = key.Key.match(/nodejs\.org-access\.log\.(\d{4})(\d{2})(\d{2})\.json/)
-        if (!match) continue
-        const year = match[1]
-        const month = match[2]
-        const day = match[3]
-        availableData.push({
-          date: `${year}-${month}-${day}`,
-          url: `${BASE_URL}nodejs.org-access.log.${year}${month}${day}.json`
-        })
-      }
+    // Fetch daily data for backward compatibility with frontend
+    const dailyOsRows = db.getDailyOsDownloads()
 
-      nextMarker = obj.ListBucketResult.NextMarker
-    } while (nextMarker)
-
-    // Sort available data by date
-    availableData.sort((a, b) => {
-      const [yearA, monthA, dateA] = a.date.split('-')
-      const [yearB, monthB, dateB] = b.date.split('-')
-      return yearA - yearB || monthA - monthB || dateA - dateB
-    })
-
-    const monthsToSkip = [] // this month has botched data
-
-    // Skip current month as it doesn't have all the data yet
-    const today = new Date()
-    monthsToSkip.push(String(today.getFullYear()) + '-' + String(today.getMonth() + 1).padStart(2, '0'))
-
-    const toDownload = availableData.filter(({ date }) => !monthsToSkip.includes(date.slice(0, -3)))
-
+    // Transform version data into the expected format
+    // Format: { "4": [{ date: "2024-01-01", downloads: 123 }, ...] }
     const versions = {}
+    for (const { major_version, date, downloads } of versionRows) {
+      const key = String(major_version)
+      if (!versions[key]) {
+        versions[key] = []
+      }
+      versions[key].push({ date, downloads })
+    }
+
+    // Transform OS data into the expected format
+    // Format: { "linux": [{ date: "2024-01-01", downloads: 123 }, ...] }
     const operatingSystems = {}
-
-    // Make those files cached on disk
-    await Promise.all(toDownload.map(async ({ date, url }) => {
-      const info = await cacache.get.hasContent(cachePath, url)
-      let result
-      if (info) {
-        const res = await cacache.get(cachePath, url)
-        result = JSON.parse(res.data.toString())
-      } else {
-        const response = await undici.request(url, {
-          dispatcher: agent
-        })
-        result = await response.body.json()
-        await cacache.put(cachePath, url, JSON.stringify(result))
+    for (const { os, date, downloads } of dailyOsRows) {
+      if (!operatingSystems[os]) {
+        operatingSystems[os] = []
       }
-      const keys = Object.keys(result.version)
-      for (const key of keys) {
-        const version = semver.parse(key)
-        if (!version) continue
-        if (version.major < 4) continue
-        versions[version.major] ||= []
-        versions[version.major].push({
-          date,
-          downloads: result.version[key]
-        })
-      }
+      operatingSystems[os].push({ date, downloads })
+    }
 
-      const oses = Object.keys(result.os)
-      for (const os of oses) {
-        operatingSystems[os] ||= []
-        operatingSystems[os].push({
-          date,
-          downloads: result.os[os]
-        })
-      }
-    }))
-
+    // Sort arrays by date
     for (const key in versions) {
       versions[key].sort((a, b) => a.date.localeCompare(b.date))
     }
-
     for (const key in operatingSystems) {
       operatingSystems[key].sort((a, b) => a.date.localeCompare(b.date))
     }
 
-    const res = { versions, operatingSystems }
+    // Also include monthly aggregated format for the byVersion/byOs response
+    const byVersion = {}
+    for (const { major_version, month, total_downloads } of monthlyVersionRows) {
+      const key = `v${major_version}`
+      if (!byVersion[key]) {
+        byVersion[key] = {}
+      }
+      byVersion[key][month] = total_downloads
+    }
 
-    await cacache.put(cachePath, cacheKey, JSON.stringify(res))
+    const byOs = {}
+    for (const { os, month, total_downloads } of monthlyOsRows) {
+      if (!byOs[os]) {
+        byOs[os] = {}
+      }
+      byOs[os][month] = total_downloads
+    }
 
-    return res
-  })
+    const res = {
+      // Original format for backward compatibility
+      versions,
+      operatingSystems,
+      // New aggregated format
+      byVersion,
+      byOs
+    }
 
-  fastify.get('/metrics', async (request, reply) => {
-    const res = await cache.computeMetrics()
-    // The content stays stable for 1 hour
+    // Cache headers - content is stable for 1 hour
+    const oneHour = 60 * 60
+    reply.header('Cache-Control', `max-age=${oneHour}, s-maxage=${oneHour}, stale-while-revalidate=${oneHour}, stale-if-error=${oneHour}`)
 
-    const onehour = 60 * 60
-    reply.header('Cache-Control', `max-age=${onehour}, s-maxage=${onehour}, stale-while-revalidate=${onehour}, stale-if-error=${onehour}`)
     return res
   })
 }

@@ -9,13 +9,13 @@ Powered by [Watt](https://platformatic.dev), the Node.js application server by P
 - **Real-time Data**: Fetches Node.js download statistics from Google Cloud Storage
 - **Interactive Charts**: Visualizes downloads by version and operating system using Chart.js
 - **CSV Export**: Download monthly statistics in CSV format
-- **Smart Caching**: Two-layer caching system (in-memory + disk) for optimal performance
+- **SQLite Storage**: Pre-processed data stored in SQLite for fast queries
 - **REST API**: OpenAPI documented endpoints for programmatic access
 - **Responsive Design**: Clean, mobile-friendly interface
 
 ## Requirements
 
-- Node.js ^22.16.0
+- Node.js ^22.16.0 (for `node:sqlite` built-in module support)
 - macOS, Linux, or Windows (WSL recommended)
 
 ## Installation
@@ -60,14 +60,28 @@ Returns Node.js download statistics processed by major version (v4+) and operati
 ### Data Flow
 1. Fetches XML bucket listing from Google Cloud Storage
 2. Downloads daily JSON files containing download statistics
-3. Processes data by major Node.js version and operating system
-4. Caches results using two-layer system (5s in-memory, 24h disk cache)
-5. Serves processed data via REST API and web dashboard
+3. Processes and stores data in SQLite database (by version and OS)
+4. Automatically refreshes data every 24 hours
+5. Serves pre-aggregated data via REST API and web dashboard
+
+### Database Schema
+
+The SQLite database stores:
+
+**version_downloads table:**
+- `date` (TEXT): The date of the stats (YYYY-MM-DD)
+- `major_version` (INTEGER): Node.js major version number
+- `downloads` (INTEGER): Download count for that version on that date
+
+**os_downloads table:**
+- `date` (TEXT): The date of the stats (YYYY-MM-DD)
+- `os` (TEXT): Operating system name (linux, win32, darwin, aix, sunos)
+- `downloads` (INTEGER): Download count for that OS on that date
 
 ### Key Components
 - **Backend**: Platformatic Service with custom routes and plugins
+- **Database**: SQLite using Node.js built-in `node:sqlite` module
 - **Frontend**: Single-page application with Chart.js visualizations
-- **Caching**: cacache for disk storage, async-cache-dedupe for memory
 - **Data Processing**: Filters versions v4+, excludes current incomplete month
 
 ## Development
@@ -77,10 +91,17 @@ Run tests:
 npm test
 ```
 
+### Environment Variables
+
+- `NODEJS_DOWNLOAD_STATS_DB`: Path to SQLite database file (default: temp directory)
+
 ### Project Structure
 ```
+├── lib/
+│   ├── db.js               # SQLite database module
+│   └── ingest.js           # Data ingestion service
 ├── routes/
-│   └── metrics.js          # Main API endpoint with data processing
+│   └── metrics.js          # API endpoint with data queries
 ├── plugins/
 │   └── static.js           # Static file serving
 ├── public/

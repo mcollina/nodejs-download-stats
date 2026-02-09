@@ -4,12 +4,16 @@
     "openapi": true
   },
   "watch": {
-    "ignore": ["cache/**/*"]
+    "ignore": ["cache/**/*", "*.db", "*.db-journal", "*.db-wal", "*.db-shm"]
   },
   "plugins": {
     "paths": [
       {
-        "path": "./plugins",
+        "path": "./plugins/config.js",
+        "encapsulate": false
+      },
+      {
+        "path": "./plugins/database.js",
         "encapsulate": false
       },
       "./routes"
