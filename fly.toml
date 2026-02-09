@@ -20,3 +20,10 @@ primary_region = 'ams'
   memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
+
+[mounts]
+  source = "stats"
+  destination = "/data"
+
+[env]
+  NODEJS_DOWNLOAD_STATS_DB = "/data/stats.db"
