@@ -101,8 +101,7 @@ async function updateChart () {
     console.error('Error fetching metrics:', json.error)
     return;
   } else {
-    document.querySelectorAll('.skeleton').forEach((el) => el.classList.add('hidden')
-    )
+    document.querySelectorAll('.skeleton').forEach((el) => el.classList.add('hidden'))
   }
 
   const versions = json.versions
