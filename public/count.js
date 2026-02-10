@@ -13,14 +13,11 @@ function computeDataSet (labels, versions, includeAll = true) {
   const all = labels.map((label) => 0)
 
   const datasets = Object.keys(versions).map((version) => {
-    versions[version].map(({ date, downloads }) => downloads)
-
     const downloadsCounts = {}
 
     for (const { date, downloads } of versions[version]) {
-      const toCheck = date.replace(/-\d{2}$/g, '')
-      downloadsCounts[toCheck] ||= 0
-      downloadsCounts[toCheck] += downloads
+      const month = date.substring(0, 7) // Extract YYYY-MM from YYYY-MM-DD
+      downloadsCounts[month] = (downloadsCounts[month] || 0) + downloads
     }
 
     const data = labels.map((label) => downloadsCounts[label] || 0)
@@ -57,7 +54,7 @@ function generateCSV(json) {
   Object.keys(json.versions).forEach(version => {
     const monthlyData = {}
     json.versions[version].forEach(({ date, downloads }) => {
-      const month = date.replace(/-\d{2}$/g, '') // Remove day, keep YYYY-MM
+      const month = date.substring(0, 7) // Extract YYYY-MM
       monthlyData[month] = (monthlyData[month] || 0) + downloads
     })
     
@@ -70,7 +67,7 @@ function generateCSV(json) {
   Object.keys(json.operatingSystems).forEach(os => {
     const monthlyData = {}
     json.operatingSystems[os].forEach(({ date, downloads }) => {
-      const month = date.replace(/-\d{2}$/g, '') // Remove day, keep YYYY-MM
+      const month = date.substring(0, 7) // Extract YYYY-MM
       monthlyData[month] = (monthlyData[month] || 0) + downloads
     })
     
@@ -106,7 +103,26 @@ async function updateChart () {
 
   const versions = json.versions
 
-  const labels = [...new Set(versions['4'].map(({ date }) => date.replace(/-\d{2}$/g, '')))]
+  // Get all unique months from both versions and operating systems
+  const allMonths = new Set()
+  
+  // Add months from version data
+  for (const versionData of Object.values(versions)) {
+    for (const { date } of versionData) {
+      allMonths.add(date.substring(0, 7)) // Extract YYYY-MM
+    }
+  }
+  
+  // Add months from OS data
+  if (json.operatingSystems) {
+    for (const osData of Object.values(json.operatingSystems)) {
+      for (const { date } of osData) {
+        allMonths.add(date.substring(0, 7)) // Extract YYYY-MM
+      }
+    }
+  }
+  
+  const labels = [...allMonths].sort()
 
   // Your chart data
   var data = {
