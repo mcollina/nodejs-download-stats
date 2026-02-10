@@ -110,13 +110,26 @@ module.exports = async function (fastify, opts) {
       byOs[os][month] = total_downloads
     }
 
+    // Get ingestion status for footer display
+    const dailyTotal = db.getDailyVersionDownloads().length
+
     const res = {
       // Original format for backward compatibility
       versions,
       operatingSystems,
       // New aggregated format
       byVersion,
-      byOs
+      byOs,
+      // Ingestion status for footer
+      ingestionStatus: {
+        isLoading: ingestionProgress.isLoading,
+        processed: ingestionProgress.processed,
+        total: ingestionProgress.total,
+        dailyFilesLoaded: dailyTotal,
+        message: ingestionProgress.isLoading
+          ? `Loading: ${ingestionProgress.processed}/${ingestionProgress.total} files`
+          : `Data loaded: ${dailyTotal} days of statistics`
+      }
     }
 
     // Cache headers - content is stable for 1 hour

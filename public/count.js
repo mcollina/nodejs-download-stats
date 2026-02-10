@@ -94,6 +94,12 @@ async function updateChart () {
 
   const json = await response.json()
 
+  // Update ingestion status in footer
+  const statusEl = document.getElementById('ingestion-status')
+  if (statusEl && json.ingestionStatus) {
+    statusEl.textContent = json.ingestionStatus.message
+  }
+
   if (json.error) {
     console.error('Error fetching metrics:', json.error)
     return;
