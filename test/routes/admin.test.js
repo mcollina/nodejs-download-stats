@@ -23,6 +23,7 @@ test('admin/health returns healthy status', async () => {
   }
   app.decorate('db', mockDb)
 
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secret'
   await app.register(adminRoute, {})
 
   const response = await app.inject({
@@ -37,6 +38,7 @@ test('admin/health returns healthy status', async () => {
   assert.strictEqual(json.database.monthlyRecords, 2)
   assert.strictEqual(json.database.uniqueVersions, 2)
 
+  delete process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
   await app.close()
 })
 
@@ -74,7 +76,7 @@ test('admin/ingestion-stats returns database stats', async () => {
   assert.ok(json.totalDailyDownloads > 0)
   assert.strictEqual(json.mostRecentDate, '2024-01-02')
   assert.ok(json.lastUpdate)
-  assert.ok(json.ingesterStats)
+  assert.strictEqual(json.ingesterStats, null) // null when no ingestion run yet
 
   delete process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
   await app.close()
@@ -187,7 +189,8 @@ test('admin/retrigger-ingestion works with valid auth', async () => {
   assert.strictEqual(response.statusCode, 200)
   const json = JSON.parse(response.payload)
   assert.ok(json.message.includes('triggered'))
-  assert.strictEqual(json.clearData, undefined)
+  // When no clearData specified, it defaults to false
+  assert.strictEqual(json.clearData, false)
 
   delete process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
   await app.close()
@@ -270,6 +273,8 @@ test('admin/raw-data/:date returns version list for valid date', async () => {
   }
   app.decorate('db', mockDb)
 
+  // Admin routes must be enabled for the endpoint to exist
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secret'
   await app.register(adminRoute, {})
 
   // This test would need network access - just verify the endpoint exists
@@ -283,6 +288,7 @@ test('admin/raw-data/:date returns version list for valid date', async () => {
   // Just verify it's not a 404
   assert.ok(response.statusCode === 200 || response.statusCode === 500)
 
+  delete process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
   await app.close()
 })
 
@@ -296,6 +302,8 @@ test('admin/raw-data/:date returns 400 for invalid date format', async () => {
   }
   app.decorate('db', mockDb)
 
+  // Admin routes must be enabled for the endpoint to exist
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secret'
   await app.register(adminRoute, {})
 
   const response = await app.inject({
@@ -307,6 +315,7 @@ test('admin/raw-data/:date returns 400 for invalid date format', async () => {
   const json = JSON.parse(response.payload)
   assert.ok(json.error.includes('Invalid date'))
 
+  delete process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
   await app.close()
 })
 
