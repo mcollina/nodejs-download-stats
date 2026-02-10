@@ -53,7 +53,17 @@ module.exports = async function (fastify, opts) {
 
   // Trigger ingestion (requires auth)
   fastify.post('/admin/retrigger-ingestion', {
-    onRequest: fastify.verifyBearerAuth
+    onRequest: fastify.verifyBearerAuth,
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          clearData: { type: 'boolean', default: false },
+          resetOnly: { type: 'boolean', default: false }
+        },
+        additionalProperties: false
+      }
+    }
   }, async (request, reply) => {
     const { clearData = false, resetOnly = false } = request.body || {}
 
