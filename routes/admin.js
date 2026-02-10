@@ -5,6 +5,12 @@ const { DataIngester } = require('../lib/ingest')
 
 /** @param {import('fastify').FastifyInstance} fastify */
 module.exports = async function (fastify, opts) {
+  // Only register admin routes if explicitly enabled via env var
+  const adminAuthEnabled = process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
+  if (!adminAuthEnabled) {
+    return // Skip registration entirely if admin API is not enabled
+  }
+
   // Get database from fastify decorator
   const db = fastify.db
   if (!db) {
@@ -14,16 +20,8 @@ module.exports = async function (fastify, opts) {
   // Store reference to ingester for stats
   let ingester = null
 
-  // Check if admin API is enabled via environment variable
-  const adminAuthEnabled = process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
-
   // Basic auth middleware
   async function verifyAuth (request, reply) {
-    if (!adminAuthEnabled) {
-      reply.code(403)
-      return { error: 'Admin API not enabled' }
-    }
-
     const authHeader = request.headers.authorization
     if (!authHeader || !authHeader.startsWith('Basic ')) {
       reply.code(401)

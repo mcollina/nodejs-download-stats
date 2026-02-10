@@ -80,7 +80,7 @@ test('admin/ingestion-stats returns database stats', async () => {
   await app.close()
 })
 
-test('admin/retrigger-ingestion returns 403 when auth not enabled', async () => {
+test('admin routes not registered when auth not enabled', async () => {
   const app = fastify()
 
   const mockDb = {
@@ -97,14 +97,13 @@ test('admin/retrigger-ingestion returns 403 when auth not enabled', async () => 
 
   await app.register(adminRoute, {})
 
+  // Routes should not exist - should return 404
   const response = await app.inject({
     method: 'POST',
     url: '/admin/retrigger-ingestion'
   })
 
-  assert.strictEqual(response.statusCode, 403)
-  const json = JSON.parse(response.payload)
-  assert.ok(json.error.includes('not enabled'))
+  assert.strictEqual(response.statusCode, 404)
 
   await app.close()
 })
