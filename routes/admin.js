@@ -65,7 +65,7 @@ module.exports = async function (fastify, opts) {
       }
     }
   }, async (request, reply) => {
-    const { clearData = false, resetOnly = false } = request.body || {}
+    const { clearData, resetOnly } = request.body
 
     if (resetOnly) {
       if (ingester) {
