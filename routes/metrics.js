@@ -18,6 +18,9 @@ module.exports = async function (fastify, opts) {
   let isReady = false
   let ingestionProgress = { processed: 0, total: 0, isLoading: true }
 
+  // Expose ingestion status to other routes (e.g., chart-data)
+  fastify.decorate('ingestionProgress', ingestionProgress)
+
   // Start ingestion in background (non-blocking with yields)
   ingester.ingestWithProgress((progress) => {
     ingestionProgress = { ...progress, isLoading: true }

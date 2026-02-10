@@ -107,10 +107,10 @@ test('count.js has valid JavaScript syntax', async () => {
   }
 })
 
-test('count.js fetches metrics from correct endpoint', async () => {
+test('count.js fetches chart-data from correct endpoint', async () => {
   const countJsPath = path.join(__dirname, '../../public/count.js')
   const content = fs.readFileSync(countJsPath, 'utf-8')
 
-  assert.ok(content.includes("fetch('/metrics')"),
-    'count.js should fetch from /metrics endpoint')
+  assert.ok(content.includes("fetch('/chart-data')"),
+    'count.js should fetch from /chart-data endpoint')
 })

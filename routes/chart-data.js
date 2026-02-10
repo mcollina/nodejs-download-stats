@@ -8,6 +8,11 @@ module.exports = async function (fastify, opts) {
     throw new Error('Database not initialized - ensure database plugin is registered before chart-data routes')
   }
 
+  // Track ingestion status from metrics route
+  if (!fastify.hasDecorator('ingestionProgress')) {
+    fastify.decorate('ingestionProgress', { isLoading: false, processed: 0, total: 0 })
+  }
+
   /**
    * Compute chart data from monthly aggregated database data
    * Returns pre-computed data ready for Chart.js
@@ -151,6 +156,20 @@ module.exports = async function (fastify, opts) {
     }
 
     const chartData = computeChartData()
+
+    // Add ingestion status to response
+    const ingestionStatus = fastify.ingestionProgress || { isLoading: false, processed: 0, total: 0 }
+    const dailyTotal = db.getDailyVersionDownloads ? db.getDailyVersionDownloads().length : 0
+
+    chartData.ingestionStatus = {
+      isLoading: ingestionStatus.isLoading,
+      processed: ingestionStatus.processed,
+      total: ingestionStatus.total,
+      dailyFilesLoaded: dailyTotal,
+      message: ingestionStatus.isLoading
+        ? `Loading: ${ingestionStatus.processed}/${ingestionStatus.total} files`
+        : `Data loaded: ${dailyTotal} days of statistics`
+    }
 
     // Cache headers - content is stable for 1 hour
     const oneHour = 60 * 60
