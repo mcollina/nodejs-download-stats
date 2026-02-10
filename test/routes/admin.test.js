@@ -6,6 +6,12 @@ const fastify = require('fastify')
 const path = require('node:path')
 const adminRoute = require('../../routes/admin.js')
 
+const AUTH_TOKEN = 'test-secret-token'
+
+function authHeader(token = AUTH_TOKEN) {
+  return { authorization: `Bearer ${token}` }
+}
+
 test('admin/health returns healthy status', async () => {
   const app = fastify()
 
@@ -23,7 +29,7 @@ test('admin/health returns healthy status', async () => {
   }
   app.decorate('db', mockDb)
 
-  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secret'
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
   await app.register(adminRoute, {})
 
   const response = await app.inject({
@@ -59,7 +65,7 @@ test('admin/ingestion-stats returns database stats', async () => {
   }
   app.decorate('db', mockDb)
 
-  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:testpass'
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
   await app.register(adminRoute, {})
 
   const response = await app.inject({
@@ -76,7 +82,7 @@ test('admin/ingestion-stats returns database stats', async () => {
   assert.ok(json.totalDailyDownloads > 0)
   assert.strictEqual(json.mostRecentDate, '2024-01-02')
   assert.ok(json.lastUpdate)
-  assert.strictEqual(json.ingesterStats, null) // null when no ingestion run yet
+  assert.strictEqual(json.ingesterStats, null) // null when no ingester exists
 
   delete process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
   await app.close()
@@ -119,7 +125,7 @@ test('admin/retrigger-ingestion returns 401 without authentication', async () =>
   }
   app.decorate('db', mockDb)
 
-  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secret'
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
   await app.register(adminRoute, {})
 
   const response = await app.inject({
@@ -128,13 +134,12 @@ test('admin/retrigger-ingestion returns 401 without authentication', async () =>
   })
 
   assert.strictEqual(response.statusCode, 401)
-  assert.ok(response.headers['www-authenticate'])
 
   delete process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
   await app.close()
 })
 
-test('admin/retrigger-ingestion returns 401 with invalid credentials', async () => {
+test('admin/retrigger-ingestion returns 401 with invalid token', async () => {
   const app = fastify()
 
   const mockDb = {
@@ -143,15 +148,13 @@ test('admin/retrigger-ingestion returns 401 with invalid credentials', async () 
   }
   app.decorate('db', mockDb)
 
-  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secret'
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
   await app.register(adminRoute, {})
 
   const response = await app.inject({
     method: 'POST',
     url: '/admin/retrigger-ingestion',
-    headers: {
-      authorization: 'Basic ' + Buffer.from('wrong:wrong').toString('base64')
-    }
+    headers: { authorization: 'Bearer wrong-token' }
   })
 
   assert.strictEqual(response.statusCode, 401)
@@ -175,15 +178,13 @@ test('admin/retrigger-ingestion works with valid auth', async () => {
   }
   app.decorate('db', mockDb)
 
-  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secretpassword'
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
   await app.register(adminRoute, {})
 
   const response = await app.inject({
     method: 'POST',
     url: '/admin/retrigger-ingestion',
-    headers: {
-      authorization: 'Basic ' + Buffer.from('admin:secretpassword').toString('base64')
-    }
+    headers: authHeader(AUTH_TOKEN)
   })
 
   assert.strictEqual(response.statusCode, 200)
@@ -212,14 +213,14 @@ test('admin/retrigger-ingestion supports clearData option', async () => {
   }
   app.decorate('db', mockDb)
 
-  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secret'
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
   await app.register(adminRoute, {})
 
   const response = await app.inject({
     method: 'POST',
     url: '/admin/retrigger-ingestion',
     headers: {
-      authorization: 'Basic ' + Buffer.from('admin:secret').toString('base64'),
+      ...authHeader(AUTH_TOKEN),
       'content-type': 'application/json'
     },
     body: JSON.stringify({ clearData: true })
@@ -242,14 +243,14 @@ test('admin/retrigger-ingestion supports resetOnly option', async () => {
   }
   app.decorate('db', mockDb)
 
-  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secret'
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
   await app.register(adminRoute, {})
 
   const response = await app.inject({
     method: 'POST',
     url: '/admin/retrigger-ingestion',
     headers: {
-      authorization: 'Basic ' + Buffer.from('admin:secret').toString('base64'),
+      ...authHeader(AUTH_TOKEN),
       'content-type': 'application/json'
     },
     body: JSON.stringify({ resetOnly: true })
@@ -274,14 +275,15 @@ test('admin/raw-data/:date returns version list for valid date', async () => {
   app.decorate('db', mockDb)
 
   // Admin routes must be enabled for the endpoint to exist
-  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secret'
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
   await app.register(adminRoute, {})
 
   // This test would need network access - just verify the endpoint exists
   // and returns appropriate error or success structure
   const response = await app.inject({
     method: 'GET',
-    url: '/admin/raw-data/2021-01-01'
+    url: '/admin/raw-data/2021-01-01',
+    headers: authHeader(AUTH_TOKEN)
   })
 
   // Will either succeed (if we have network) or fail with 500 (if no network)
@@ -303,12 +305,13 @@ test('admin/raw-data/:date returns 400 for invalid date format', async () => {
   app.decorate('db', mockDb)
 
   // Admin routes must be enabled for the endpoint to exist
-  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = 'admin:secret'
+  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
   await app.register(adminRoute, {})
 
   const response = await app.inject({
     method: 'GET',
-    url: '/admin/raw-data/invalid-date'
+    url: '/admin/raw-data/invalid-date',
+    headers: authHeader(AUTH_TOKEN)
   })
 
   assert.strictEqual(response.statusCode, 400)

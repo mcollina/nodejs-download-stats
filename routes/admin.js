@@ -6,8 +6,8 @@ const { DataIngester } = require('../lib/ingest')
 /** @param {import('fastify').FastifyInstance} fastify */
 module.exports = async function (fastify, opts) {
   // Only register admin routes if explicitly enabled via env var
-  const adminAuthEnabled = process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
-  if (!adminAuthEnabled) {
+  const adminAuthToken = process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
+  if (!adminAuthToken) {
     return // Skip registration entirely if admin API is not enabled
   }
 
@@ -20,27 +20,12 @@ module.exports = async function (fastify, opts) {
   // Store reference to ingester for stats
   let ingester = null
 
-  // Basic auth middleware
-  async function verifyAuth (request, reply) {
-    const authHeader = request.headers.authorization
-    if (!authHeader || !authHeader.startsWith('Basic ')) {
-      reply.code(401)
-      reply.header('WWW-Authenticate', 'Basic realm="admin"')
-      return { error: 'Authentication required' }
-    }
-
-    const base64 = authHeader.slice(6)
-    const decoded = Buffer.from(base64, 'base64').toString('utf-8')
-    const [username, password] = decoded.split(':')
-
-    const [expectedUser, expectedPass] = adminAuthEnabled.split(':')
-    if (username !== expectedUser || password !== expectedPass) {
-      reply.code(401)
-      return { error: 'Invalid credentials' }
-    }
-
-    return null // Auth passed
-  }
+  // Register bearer auth plugin for protected routes
+  await fastify.register(require('@fastify/bearer-auth'), {
+    keys: new Set([adminAuthToken]),
+    // Only apply auth to specific routes
+    addHook: false // We'll manually specify which routes need auth
+  })
 
   // Expose ingestion stats (read-only, no auth needed)
   fastify.get('/admin/ingestion-stats', async (request, reply) => {
@@ -67,10 +52,9 @@ module.exports = async function (fastify, opts) {
   })
 
   // Trigger ingestion (requires auth)
-  fastify.post('/admin/retrigger-ingestion', async (request, reply) => {
-    const authError = await verifyAuth(request, reply)
-    if (authError) return authError
-
+  fastify.post('/admin/retrigger-ingestion', {
+    onRequest: fastify.verifyBearerAuth
+  }, async (request, reply) => {
     const { clearData = false, resetOnly = false } = request.body || {}
 
     if (resetOnly) {
@@ -102,7 +86,9 @@ module.exports = async function (fastify, opts) {
   })
 
   // Get raw data for a specific date (for debugging)
-  fastify.get('/admin/raw-data/:date', async (request, reply) => {
+  fastify.get('/admin/raw-data/:date', {
+    onRequest: fastify.verifyBearerAuth
+  }, async (request, reply) => {
     const { date } = request.params
 
     // Validate date format

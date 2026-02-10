@@ -4,6 +4,7 @@
     "test": "node --test test/*/*.test.js"
   },
   "dependencies": {
+    "@fastify/bearer-auth": "^10.0.0",
     "@fastify/static": "^8.0.0",
     "@platformatic/config": "^2.75.2",
     "@platformatic/service": "^3.0.0",
