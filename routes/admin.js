@@ -81,7 +81,7 @@ module.exports = async function (fastify, opts) {
     }
 
     // Create new ingester and trigger ingestion
-    ingester = new DataIngester(fastify.log, db)
+    ingester = new DataIngester(fastify.log, db, opts.ingesterAgent)
 
     // Start ingestion in background
     ingester.ingest().catch(err => {

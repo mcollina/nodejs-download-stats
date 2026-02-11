@@ -4,6 +4,7 @@ const assert = require('node:assert')
 const test = require('node:test')
 const fastify = require('fastify')
 const path = require('node:path')
+const undici = require('undici')
 const adminRoute = require('../../routes/admin.js')
 
 const AUTH_TOKEN = 'test-secret-token'
@@ -178,13 +179,31 @@ test('admin/retrigger-ingestion works with valid auth', async () => {
   }
   app.decorate('db', mockDb)
 
+  // Create MockAgent to prevent real network calls during ingestion
+  const mockAgent = new undici.MockAgent()
+  mockAgent.disableNetConnect()
+  // Return empty bucket listing
+  const mockPool = mockAgent.get('https://storage.googleapis.com')
+  mockPool.intercept({
+    path: (path) => path.includes('max-keys=1000'),
+    method: 'GET'
+  }).reply(200, `<?xml version="1.0" encoding="UTF-8"?>
+    <ListBucketResult xmlns="http://doc.s3.amazonaws.com/2006-03-01">
+      <Name>access-logs-summaries-nodejs</Name>
+      <Contents></Contents>
+    </ListBucketResult>`).persist()
+
   process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
-  await app.register(adminRoute, {})
+  await app.register(adminRoute, { ingesterAgent: mockAgent })
 
   const response = await app.inject({
     method: 'POST',
     url: '/admin/retrigger-ingestion',
-    headers: authHeader(AUTH_TOKEN)
+    headers: {
+      ...authHeader(AUTH_TOKEN),
+      'content-type': 'application/json'
+    },
+    body: '{}'
   })
 
   assert.strictEqual(response.statusCode, 200)
@@ -193,6 +212,7 @@ test('admin/retrigger-ingestion works with valid auth', async () => {
   // When no clearData specified, it defaults to false
   assert.strictEqual(json.clearData, false)
 
+  await mockAgent.close()
   delete process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
   await app.close()
 })
@@ -213,8 +233,22 @@ test('admin/retrigger-ingestion supports clearData option', async () => {
   }
   app.decorate('db', mockDb)
 
+  // Create MockAgent to prevent real network calls during ingestion
+  const mockAgent = new undici.MockAgent()
+  mockAgent.disableNetConnect()
+  // Return empty bucket listing
+  const mockPool = mockAgent.get('https://storage.googleapis.com')
+  mockPool.intercept({
+    path: (path) => path.includes('max-keys=1000'),
+    method: 'GET'
+  }).reply(200, `<?xml version="1.0" encoding="UTF-8"?>
+    <ListBucketResult xmlns="http://doc.s3.amazonaws.com/2006-03-01">
+      <Name>access-logs-summaries-nodejs</Name>
+      <Contents></Contents>
+    </ListBucketResult>`).persist()
+
   process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
-  await app.register(adminRoute, {})
+  await app.register(adminRoute, { ingesterAgent: mockAgent })
 
   const response = await app.inject({
     method: 'POST',
@@ -231,6 +265,7 @@ test('admin/retrigger-ingestion supports clearData option', async () => {
   const json = JSON.parse(response.payload)
   assert.strictEqual(json.clearData, true)
 
+  await mockAgent.close()
   delete process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
   await app.close()
 })
