@@ -194,7 +194,9 @@ test('admin/retrigger-ingestion works with valid auth', async () => {
     </ListBucketResult>`).persist()
 
   process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
-  await app.register(adminRoute, { ingesterAgent: mockAgent })
+  // Set mock agent as global dispatcher so DataIngester uses it
+  undici.setGlobalDispatcher(mockAgent)
+  await app.register(adminRoute, {})
 
   const response = await app.inject({
     method: 'POST',
@@ -203,7 +205,7 @@ test('admin/retrigger-ingestion works with valid auth', async () => {
       ...authHeader(AUTH_TOKEN),
       'content-type': 'application/json'
     },
-    body: '{}'
+    body: JSON.stringify({})
   })
 
   assert.strictEqual(response.statusCode, 200)
@@ -248,7 +250,9 @@ test('admin/retrigger-ingestion supports clearData option', async () => {
     </ListBucketResult>`).persist()
 
   process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
-  await app.register(adminRoute, { ingesterAgent: mockAgent })
+  // Set mock agent as global dispatcher so DataIngester uses it
+  undici.setGlobalDispatcher(mockAgent)
+  await app.register(adminRoute, {})
 
   const response = await app.inject({
     method: 'POST',
