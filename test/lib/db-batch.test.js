@@ -130,3 +130,32 @@ test('batch operations are significantly faster than individual inserts', () => 
   // Batch should be reasonably fast (typically < 100ms for 100 records)
   assert.ok(batchTime < 500, `Batch insert of 100 records took ${batchTime}ms, expected < 500ms`)
 })
+
+test('clearData also clears last_update metadata for re-ingestion', () => {
+  const db = new Database(':memory:')
+  db.initSchema()
+
+  // Insert some data
+  db.insertVersionDownloadsBatch([
+    { date: '2024-01-15', majorVersion: 18, downloads: 100 }
+  ])
+  db.insertOsDownloadsBatch([
+    { date: '2024-01-15', os: 'linux', downloads: 100 }
+  ])
+
+  // Set a last_update timestamp
+  db.setLastUpdate('2024-01-15T00:00:00Z', Date.now())
+
+  // Verify data exists
+  assert.strictEqual(db.getDailyVersionDownloads().length, 1)
+  assert.strictEqual(db.getDailyOsDownloads().length, 1)
+  assert.ok(db.getLastUpdate())
+
+  // Clear data
+  db.clearData()
+
+  // Verify all data is cleared including last_update
+  assert.strictEqual(db.getDailyVersionDownloads().length, 0)
+  assert.strictEqual(db.getDailyOsDownloads().length, 0)
+  assert.strictEqual(db.getLastUpdate(), null, 'last_update should be cleared for re-ingestion')
+})
