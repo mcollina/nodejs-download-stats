@@ -260,6 +260,81 @@ describe('DataIngester - error handling', () => {
   })
 })
 
+describe('DataIngester - version aggregation', () => {
+  let dbPath
+  let db
+  let logger
+  let mockAgent
+
+  before(async () => {
+    dbPath = join(os.tmpdir(), `test-ingest-aggregation-${Date.now()}.db`)
+    db = new Database(dbPath)
+    db.initSchema()
+    logger = createMockLogger()
+
+    mockAgent = new MockAgent()
+    mockAgent.disableNetConnect()
+    setGlobalDispatcher(mockAgent)
+
+    // Set old last_update to force ingestion (25 hours ago)
+    const twentyFiveHoursAgo = Date.now() - 25 * 60 * 60 * 1000
+    db.setLastUpdate(new Date(twentyFiveHoursAgo).toISOString(), twentyFiveHoursAgo)
+  })
+
+  after(async () => {
+    db.closeDb()
+    try { fs.unlinkSync(dbPath) } catch {}
+    await mockAgent.close()
+  })
+
+  it('should aggregate multiple patch versions by major version', async () => {
+    const ingester = new DataIngester(logger, db, mockAgent)
+    const mockPool = mockAgent.get('https://storage.googleapis.com')
+
+    const bucketListing = `<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult>
+  <Contents><Key>nodejs.org-access.log.20240601.json</Key></Contents>
+</ListBucketResult>`
+
+    // Multiple patch versions for same major - should be aggregated
+    const dayData = JSON.stringify({
+      version: {
+        'v14.15.5': 100000,
+        'v14.15.4': 50000,
+        'v14.14.0': 30000,
+        'v12.20.1': 20000,
+        'v12.20.0': 10000
+      },
+      os: { linux: 210000 }
+    })
+
+    mockPool.intercept({
+      path: (path) => path.includes('max-keys=1000'),
+      method: 'GET'
+    }).reply(200, bucketListing, { 'content-type': 'application/xml' })
+
+    mockPool.intercept({
+      path: (path) => path.includes('20240601.json'),
+      method: 'GET'
+    }).reply(200, dayData, { 'content-type': 'application/json' })
+
+    await ingester.ingest()
+
+    const versions = db.getDailyVersionDownloads()
+
+    // Should only have ONE row per major version, not one per patch
+    const v14Data = versions.filter(v => v.major_version === 14 && v.date === '2024-06-01')
+    const v12Data = versions.filter(v => v.major_version === 12 && v.date === '2024-06-01')
+
+    assert.strictEqual(v14Data.length, 1, 'should have exactly one v14 row (aggregated)')
+    assert.strictEqual(v12Data.length, 1, 'should have exactly one v12 row (aggregated)')
+
+    // Downloads should be SUM of all patch versions
+    assert.strictEqual(v14Data[0].downloads, 180000, 'v14 should sum to 180000 (100000+50000+30000)')
+    assert.strictEqual(v12Data[0].downloads, 30000, 'v12 should sum to 30000 (20000+10000)')
+  })
+})
+
 describe('DataIngester - version filtering', () => {
   let dbPath
   let db
