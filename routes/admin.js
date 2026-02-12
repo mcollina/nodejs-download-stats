@@ -11,6 +11,8 @@ module.exports = async function (fastify, opts) {
     return // Skip registration entirely if admin API is not enabled
   }
 
+  fastify.log.info('Admin routes enabled')
+
   // Get database from fastify decorator
   const db = fastify.db
   if (!db) {
