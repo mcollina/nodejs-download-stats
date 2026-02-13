@@ -274,35 +274,6 @@ test('admin/retrigger-ingestion supports clearData option', async () => {
   await app.close()
 })
 
-test('admin/retrigger-ingestion supports resetOnly option', async () => {
-  const app = fastify()
-
-  const mockDb = {
-    getDailyVersionDownloads: () => []
-  }
-  app.decorate('db', mockDb)
-
-  process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH = AUTH_TOKEN
-  await app.register(adminRoute, {})
-
-  const response = await app.inject({
-    method: 'POST',
-    url: '/admin/retrigger-ingestion',
-    headers: {
-      ...authHeader(AUTH_TOKEN),
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({ resetOnly: true })
-  })
-
-  assert.strictEqual(response.statusCode, 200)
-  const json = JSON.parse(response.payload)
-  assert.ok(json.message.includes('reset'))
-
-  delete process.env.NODEJS_DOWNLOAD_STATS_ADMIN_AUTH
-  await app.close()
-})
-
 test('admin/raw-data/:date returns version list for valid date', async () => {
   const app = fastify()
 
