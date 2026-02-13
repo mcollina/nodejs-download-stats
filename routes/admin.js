@@ -60,21 +60,13 @@ module.exports = async function (fastify, opts) {
       body: {
         type: 'object',
         properties: {
-          clearData: { type: 'boolean', default: false },
-          resetOnly: { type: 'boolean', default: false }
+          clearData: { type: 'boolean', default: false }
         },
         additionalProperties: false
       }
     }
   }, async (request, reply) => {
-    const { clearData, resetOnly } = request.body
-
-    if (resetOnly) {
-      if (ingester) {
-        ingester.reset()
-      }
-      return { message: 'Ingestion state reset' }
-    }
+    const { clearData } = request.body
 
     // Clear data if requested
     if (clearData) {
